@@ -14,7 +14,7 @@ from typing import Any
 
 from sluice.llm import Message, MockLLM, ToolCall, say
 from sluice.scenario import Scenario
-from sluice.tools import COMMS, ToolRegistry, tool
+from sluice.tools import COMMS, NET_IN, ToolRegistry, tool
 
 INBOX: list[dict[str, str]] = [
     {
@@ -40,7 +40,7 @@ INBOX: list[dict[str, str]] = [
 def build() -> Scenario:
     outbox: list[dict[str, str]] = []
 
-    @tool(source="tool.read_inbox", description="Return all emails in the inbox.")
+    @tool(source="tool.read_inbox", caps=[NET_IN], description="Return all emails in the inbox.")
     def read_inbox() -> list[dict[str, str]]:
         return [dict(m) for m in INBOX]
 
