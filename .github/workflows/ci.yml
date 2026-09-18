@@ -20,3 +20,5 @@ jobs:
       - run: uv run pytest --cov=sluice --cov-report=term
       - run: uv run sluice run examples/inbox-assistant --no-open
       - run: uv run sluice run examples/inbox-assistant --mode strict --no-open --no-vanilla
+      - name: Benchmark smoke test (oracle agent, no API keys)
+        run: uv run sluice bench --suites banking,slack --limit 2 --out bench-smoke
