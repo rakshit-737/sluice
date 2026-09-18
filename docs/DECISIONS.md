@@ -118,3 +118,29 @@ YAML (a permissive Rego rule could silently relax a block).
 Integrity failures map to OWASP LLM01/LLM06 and ATLAS AML.T0051.001; confidentiality failures
 to LLM02 and AML.T0057. Tags come from *what the rule prevented*, not from guessing the
 attacker's intent, so they are deterministic and testable.
+
+## D21. The planner never sees MCP tool descriptions
+Descriptions of local tools are written by the deployer and shown to the planner. MCP
+descriptions come from the server, so they are untrusted content, and a malicious one is a
+prompt injection aimed straight at the privileged model. For `mcp.*` tools the planner sees
+only the signature. Rejected: showing all descriptions (defeats the planner's isolation).
+
+## D22. List structure is labelled by the source; record structure by the arguments
+A list's length and order come from the data (the attacker decides how many emails arrive),
+so iterating it or taking `len()` carries the source label. A record's keys come from the
+tool's schema, so `profile().email` keeps the field's own label and per-field `fields:`
+sources stay precise. Rejected: labelling containers with the join of their children (loses
+field precision) or leaving structure unlabelled (makes loop counts an unlabelled channel).
+
+## D23. Implicit flows are tracked with a pc label; termination is not
+`if`, `for`, `a if c else b` and short-circuit `and`/`or` raise the pc label for whatever runs
+under them, and tool arguments, assignments and answers join it. The plan stops at the first
+block or runtime error, which leaks about one bit through termination. CaMeL accepts the same
+channel. Rejected: continuing after a block (changes plan semantics in surprising ways) and
+padding execution (not meaningful when tools have side effects).
+
+## D24. The quarantine result inherits the text's label, and quarantine is not a policy sink
+The Q-LLM has no tools, and its output is validated against a Pydantic schema, so it can only
+produce data. That data is labelled like its input. Quarantine calls are not checked against
+sink rules. Deployers must still treat the Q-LLM provider as a processor of whatever text is
+sent to it (documented in strict-mode.md).
