@@ -14,12 +14,16 @@ uv run sluice run examples/inbox-assistant
 
 ## Architecture
 - `sluice/labels/` — Label lattice, LabeledValue, propagation helpers
-- `sluice/tools/` — tool registry, `@tool` decorator, MCP adapter
-- `sluice/policy/` — YAML loader → compiled rules, Decision + Explanation, trifecta check
-- `sluice/monitor/` — attribution middleware (monitor mode) + provider adapters
+- `sluice/tools/` — tool registry, `@tool` decorator, `mcp.py` MCP adapter
+- `sluice/policy/` — YAML loader → compiled rules, Decision + Explanation, `trifecta.py`,
+  `engine.py` (PolicyEngine protocol), `opa.py` (Rego backend), `frameworks.py` (OWASP/ATLAS tags)
+- `sluice/monitor/` — attribution middleware, `guard.py` (drop-in guard), `ask.py`,
+  `adapters/` (anthropic, openai, ollama: guard + LLMClient each)
 - `sluice/strict/` — planner, AST-whitelist parser, interpreter, quarantine
 - `sluice/graph/` — provenance DAG, DOT/JSON export, self-contained HTML viewer
-- `sluice/trace/` — JSONL writer/reader, replay
+- `sluice/trace/` — JSONL writer (with listeners) / reader, `replay.py`
+- `sluice/export/` — `ocsf.py` (SIEM), `otel.py` (OpenTelemetry), `sarif.py` (code scanning)
+- `sluice/_access.py` — dict-or-SDK-object field access shared by adapters
 - `sluice/agent.py` — minimal agent loop; `sluice/llm.py` — LLM protocol + MockLLM
 - `sluice/cli.py` — run, replay, policy check, trifecta, bench
 - `bench/`, `examples/`, `docs/`
@@ -39,5 +43,9 @@ uv run sluice run examples/inbox-assistant
 - Python 3.11+, `mypy --strict`, ruff clean. Pydantic v2 for schemas (policy, trace, quarantine);
   frozen dataclasses for hot-path values (Label, LabeledValue).
 - Hypothesis for lattice + interpreter invariants. ≥90% coverage on labels/, policy/, strict/.
-- Small conventional commits. Phase done only when suite green, lint + types clean, coverage shown.
+- Small conventional commits, one logical change each, pushed to origin/main as you go.
+  Phase done only when suite green, lint + types clean, coverage shown.
+- Telemetry/exporters are trace listeners; they must never affect a decision.
+- Any engine or transport failure (OPA, ask, parsing) resolves to block.
 - Never touch anything outside the repo.
+- On this Windows machine, edit code with the Edit tool; shell heredocs mangle `\n` escapes.
