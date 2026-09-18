@@ -17,6 +17,9 @@ anthropic = ["anthropic>=0.40"]
 openai = ["openai>=1.40"]
 ollama = ["ollama>=0.3"]
 mcp = ["mcp>=1.0"]
+otel = [
+    "opentelemetry-api>=1.25",
+]
 
 [project.scripts]
 sluice = "sluice.cli:app"
@@ -29,6 +32,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "types-pyyaml",
+    "opentelemetry-sdk>=1.25",
 ]
 
 [build-system]
