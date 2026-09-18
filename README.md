@@ -5,6 +5,8 @@ security label; flows are tracked through reasoning and tool calls; policy viola
 blocked at the sink. Prompt injection can still fool the model — it can no longer make the
 model do anything dangerous.
 
+![sluice blocking an indirect prompt injection in the inbox-assistant demo](docs/demo.svg)
+
 Status: pre-alpha. See `docs/` for the threat model and design.
 
 ## Quickstart
