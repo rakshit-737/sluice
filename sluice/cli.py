@@ -18,6 +18,7 @@ from sluice.export.ocsf import OcsfExporter
 from sluice.export.sarif import trifecta_sarif
 from sluice.graph.provenance import ProvenanceGraph
 from sluice.labels.value import reset_ids
+from sluice.llm import LLMClient
 from sluice.monitor.ask import rich_ask
 from sluice.monitor.middleware import Monitor
 from sluice.policy.compiler import Policy, PolicyError
@@ -144,6 +145,45 @@ def _run_strict(sc: Scenario, policy: Policy, trace: TraceWriter) -> tuple[list[
     if result.answers:
         console.print(Text(f"answer label: {result.answer_label}"))
     return result.blocked, result.answer
+
+
+@app.command()
+def bench(
+    suites: str = typer.Option("all", help="Comma-separated AgentDojo suites, or 'all'"),
+    modes: str = typer.Option("none,monitor", help="Comma-separated: none, monitor, strict"),
+    agent: str = typer.Option("oracle", help="oracle (no API key) or llm"),
+    model: str | None = typer.Option(None, help="provider:model for --agent llm"),
+    limit: int | None = typer.Option(None, help="Max user and injection tasks per suite"),
+    out: Path = typer.Option(Path("bench/results/latest"), help="Output directory"),
+) -> None:
+    """Run the AgentDojo benchmark (needs the `bench` extra)."""
+    try:
+        from sluice.bench.agentdojo import run_benchmark
+    except ImportError as e:
+        console.print(f"[red]error:[/] {e}. Install with: uv sync --extra bench")
+        raise typer.Exit(2) from e
+    factory = None
+    if model:
+        from sluice.providers import llm_from_spec
+
+        def factory() -> LLMClient:
+            return llm_from_spec(model)
+
+    try:
+        result = run_benchmark(
+            None if suites == "all" else suites.split(","),
+            modes.split(","),
+            agent,
+            factory,
+            limit,
+        )
+    except ValueError as e:
+        console.print(f"[red]error:[/] {e}")
+        raise typer.Exit(2) from e
+    result.save(out)
+    console.print(result.markdown())
+    errors = sum(1 for o in result.outcomes if o.error)
+    console.print(f"{len(result.outcomes)} runs, {errors} errors; results in {out}")
 
 
 @app.command()
