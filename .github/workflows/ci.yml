@@ -10,7 +10,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
       - run: uv python install ${{ matrix.python }}
-      - run: uv sync --python ${{ matrix.python }}
+      - run: uv sync --all-extras --python ${{ matrix.python }}
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy
