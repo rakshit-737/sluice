@@ -28,8 +28,10 @@ from sluice.monitor import Monitor
 from sluice.policy import Policy
 from sluice.tools import COMMS, ToolRegistry, tool
 
+
 @tool(caps=[COMMS])
 def send_email(to: str, body: str) -> str: ...
+
 
 registry = ToolRegistry([send_email, ...])
 monitor = Monitor(Policy.load("policy.yaml"), registry)
