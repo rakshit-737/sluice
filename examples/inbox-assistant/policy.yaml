@@ -1,0 +1,22 @@
+# Inbox assistant policy.
+# Anything not listed here fails closed: unknown sources are untrusted/secret,
+# undeclared sinks require every argument to be trusted.
+version: 1
+
+sources:
+  system: {integrity: trusted, confidentiality: internal}
+  user: {integrity: trusted, confidentiality: internal}
+  # Text the model writes itself (monitor mode cannot attribute it to any input).
+  model: {integrity: trusted, confidentiality: internal}
+  # Email content is written by strangers and is private.
+  tool.read_inbox: {integrity: untrusted, confidentiality: secret}
+
+sinks:
+  read_inbox: {}
+  send_email:
+    args:
+      to: {require_integrity: trusted}
+      subject: {max_confidentiality: internal}
+      body: {max_confidentiality: internal}
+
+on_violation: block
