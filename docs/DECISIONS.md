@@ -54,3 +54,43 @@ The root is kept in the trace but not used for attribution (it would duplicate e
 The viewer must open offline from a trace, and a security tool's report should not execute
 code. All text is HTML-escaped (tool outputs are attacker-controlled).
 Rejected: d3/dagre via CDN (network dependency, script execution in the report).
+
+## D11. MCP tools: capability tags from the deployer only, source class per server+tool
+MCP servers supply tool names, descriptions and `annotations` (read-only / open-world hints).
+Everything a server says about itself is a claim by a party we may not trust, so sluice never
+derives capability tags or labels from it. Each tool's source class is `mcp.<server>.<tool>`;
+if the policy does not name it, outputs get the fail-closed untrusted/secret label.
+Rejected: mapping `readOnlyHint`/`openWorldHint` to caps (a malicious server would declare
+itself harmless).
+
+## D12. Drop-in guards remove blocked tool calls from the provider response
+The guard cannot execute tools (the caller's loop does), so enforcement means the caller's
+loop never *sees* a blocked call. The response keeps its SDK type; blocked calls are removed
+and replaced by a text notice with the explanation; if no calls remain, the stop/finish
+reason becomes a normal end of turn so loops terminate cleanly. `raise_on_block=True` raises
+`SluiceBlocked` instead. Rejected: raising by default (breaks existing loops on every block);
+leaving calls in with a flag (an unaware loop would still execute them).
+
+## D13. Streaming is refused by the guards
+Tool-call arguments arrive as partial JSON deltas; a guard that passes chunks through cannot
+review a call before the caller starts acting on it. `stream=True` raises
+`NotImplementedError` rather than silently passing unreviewed output.
+Rejected: passthrough with a warning (fail-open).
+
+## D14. Ollama: synthesised call ids
+Ollama tool calls carry no id. sluice names them `ollama-<message index>-<call index>` and
+pairs each tool result with the oldest unanswered call of the same `tool_name`. This is
+stable because chat histories are append-only. Results that cannot be paired are labelled as
+unreviewed outputs (source label only).
+
+## D15. Traces are self-contained
+The first event of every trace (`session`) carries the compiled policy and the tool manifest
+(everything but the callables). `sluice replay` therefore needs nothing but the file, and can
+re-decide every call under a different policy for incident review.
+
+## D16. Trifecta coverage criterion
+An exfiltration argument is guarded if its effective rule blocks untrusted data or blocks
+secret data, and the sink's verdict actually blocks (`log` does not; `ask` does, because it
+fails closed). A channel is covered when every argument is guarded; zero-argument channels
+carry no data and are covered. Classification uses capability tags *and* policy source
+labels, so undeclared sources (fail-closed untrusted/secret) count toward the trifecta.
