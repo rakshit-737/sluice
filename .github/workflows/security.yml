@@ -26,9 +26,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   trifecta:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
       - run: uv sync
       - name: Fail on unguarded exfiltration paths in the examples
-        run: uv run sluice trifecta examples/inbox-assistant --strict
+        run: uv run sluice trifecta examples/inbox-assistant --strict --sarif trifecta.sarif
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trifecta-sarif
+          path: trifecta.sarif
+      - name: Upload to code scanning (needs GitHub Advanced Security on private repos)
+        if: always() && !github.event.repository.private
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trifecta.sarif
+          category: sluice-trifecta
