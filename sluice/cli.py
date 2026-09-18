@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import webbrowser
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from rich.text import Text
 
 from sluice.agent import Agent, RunResult
 from sluice.export.ocsf import OcsfExporter
+from sluice.export.sarif import trifecta_sarif
 from sluice.graph.provenance import ProvenanceGraph
 from sluice.labels.value import reset_ids
 from sluice.monitor.ask import rich_ask
@@ -27,6 +29,12 @@ app = typer.Typer(help="Information-flow control runtime for LLM agents.", no_ar
 policy_app = typer.Typer(help="Policy utilities.", no_args_is_help=True)
 app.add_typer(policy_app, name="policy")
 console = Console()
+
+
+def _repo_uri(path: Path) -> str:
+    """Forward-slash path relative to the working directory, as SARIF consumers expect."""
+    p = path.resolve()
+    return (p.relative_to(Path.cwd()) if p.is_relative_to(Path.cwd()) else p).as_posix()
 
 
 def _executed(title: str, result: RunResult) -> Table:
@@ -135,6 +143,7 @@ def trifecta(
     scenario_dir: Path = typer.Argument(..., help="Directory with scenario.py (tool registry)"),
     policy_path: Path | None = typer.Option(None, "--policy", help="Default: <dir>/policy.yaml"),
     strict: bool = typer.Option(False, help="Exit 1 if any exfiltration path is not covered"),
+    sarif: Path | None = typer.Option(None, help="Write findings as SARIF 2.1.0"),
 ) -> None:
     """Report private-data / untrusted-content / exfiltration exposure and its coverage."""
     try:
@@ -175,6 +184,11 @@ def trifecta(
         console.print(
             f"[yellow]no capability tags (not classified):[/] {', '.join(report.unclassified)}"
         )
+    if sarif:
+        text = path.read_text(encoding="utf-8") if path else None
+        uri = _repo_uri(path) if path else "policy.yaml"
+        sarif.write_text(json.dumps(trifecta_sarif(report, uri, text), indent=2), encoding="utf-8")
+        console.print(f"sarif: {sarif}")
     if strict and report.present and report.exposed:
         raise typer.Exit(1)
 
