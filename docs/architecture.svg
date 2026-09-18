@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600" font-family="ui-sans-serif,Segoe UI,Helvetica,Arial,sans-serif" role="img" aria-label="sluice architecture: monitor mode and strict mode enforce a policy at tool-call sinks">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#8a8f98"/>
+    </marker>
+    <marker id="ared" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#d62828"/>
+    </marker>
+  </defs>
+  <style>
+    .bg{fill:#16171a}
+    .card{fill:#202226;stroke:#3a3d44;stroke-width:1.5}
+    .trusted{stroke:#2a9d8f}
+    .untrusted{stroke:#e76f51}
+    .sink{stroke:#e6b800}
+    .h{fill:#ececef;font-weight:700;font-size:15px}
+    .t{fill:#ececef;font-size:13px}
+    .s{fill:#9a9aa2;font-size:11.5px}
+    .lane{fill:#ececef;font-weight:700;font-size:13px;letter-spacing:.04em}
+    .edge{stroke:#8a8f98;stroke-width:2;fill:none}
+    .blocked{stroke:#d62828;stroke-width:2.5;stroke-dasharray:7 4;fill:none}
+    .pill{fill:#2a2d33;stroke:#4a4e57;stroke-width:1}
+    .pt{fill:#c7ccd4;font-size:11px}
+    .legend{fill:#9a9aa2;font-size:11.5px}
+    .sw{stroke-width:3}
+  </style>
+
+  <rect class="bg" width="960" height="600" rx="10"/>
+  <text x="28" y="38" class="h" font-size="18">sluice — information-flow control for LLM agents</text>
+  <text x="28" y="58" class="s">Label every value · track flows through tool calls · enforce policy at the sink. A prompt injection can fool the model; it cannot make it act.</text>
+
+  <!-- ===================== MONITOR MODE ===================== -->
+  <text x="28" y="92" class="lane">MONITOR MODE — drop-in guard around your existing agent loop</text>
+  <rect x="20" y="102" width="920" height="150" rx="8" fill="#1b1c20" stroke="#2c2f36"/>
+
+  <!-- user/system (trusted) -->
+  <rect class="card trusted" x="36" y="128" width="150" height="52" rx="8"/>
+  <text x="48" y="150" class="t">user · system</text>
+  <text x="48" y="168" class="s">trusted / internal</text>
+
+  <!-- agent loop + guard -->
+  <rect class="card" x="236" y="120" width="200" height="112" rx="8"/>
+  <text x="252" y="144" class="t">agent loop + Guard</text>
+  <text x="252" y="164" class="s">attributes each tool-call arg</text>
+  <text x="252" y="180" class="s">to labelled context by</text>
+  <text x="252" y="196" class="s">$ref · containment · n-gram</text>
+  <rect class="pill" x="252" y="204" width="168" height="20" rx="10"/>
+  <text x="336" y="218" class="pt" text-anchor="middle">Anthropic · OpenAI · Ollama · MCP</text>
+
+  <!-- policy decision -->
+  <rect class="card sink" x="486" y="120" width="150" height="112" rx="8"/>
+  <text x="500" y="144" class="t">policy check</text>
+  <text x="500" y="164" class="s">at every sink</text>
+  <text x="500" y="182" class="s">arg label must</text>
+  <text x="500" y="198" class="s">satisfy the rule,</text>
+  <text x="500" y="214" class="s">else block / ask / log</text>
+
+  <!-- tools/sinks -->
+  <rect class="card" x="686" y="128" width="150" height="52" rx="8"/>
+  <text x="700" y="150" class="t">tools (sinks)</text>
+  <text x="700" y="168" class="s">send · pay · post · share</text>
+
+  <!-- untrusted tool results feeding back -->
+  <rect class="card untrusted" x="662" y="196" width="260" height="44" rx="8"/>
+  <text x="676" y="215" class="t">tool results → untrusted</text>
+  <text x="676" y="231" class="s">email / web / file, labelled by source</text>
+
+  <!-- monitor edges -->
+  <path class="edge" d="M186 154 L232 176" marker-end="url(#a)"/>
+  <path class="edge" d="M436 176 L482 176" marker-end="url(#a)"/>
+  <path class="blocked" d="M636 158 L682 150" marker-end="url(#ared)"/>
+  <text x="646" y="140" fill="#d62828" font-size="11" font-weight="700">blocked</text>
+  <path class="edge" d="M662 218 Q452 224 442 200 L440 190" marker-end="url(#a)"/>
+
+  <!-- ===================== STRICT MODE ===================== -->
+  <text x="28" y="298" class="lane">STRICT MODE — CaMeL-style: the planner never sees untrusted content</text>
+  <rect x="20" y="308" width="920" height="176" rx="8" fill="#1b1c20" stroke="#2c2f36"/>
+
+  <rect class="card trusted" x="36" y="336" width="150" height="52" rx="8"/>
+  <text x="48" y="358" class="t">user request</text>
+  <text x="48" y="376" class="s">trusted only</text>
+
+  <rect class="card" x="236" y="330" width="176" height="64" rx="8"/>
+  <text x="252" y="354" class="t">Planner LLM</text>
+  <text x="252" y="372" class="s">sees request + tool</text>
+  <text x="252" y="386" class="s">signatures only</text>
+
+  <rect class="card" x="452" y="330" width="184" height="64" rx="8"/>
+  <text x="468" y="354" class="t">Interpreter</text>
+  <text x="468" y="372" class="s">runs a restricted-Python</text>
+  <text x="468" y="386" class="s">plan with exact labels</text>
+
+  <rect class="card sink" x="676" y="336" width="150" height="52" rx="8"/>
+  <text x="690" y="358" class="t">tools (sinks)</text>
+  <text x="690" y="376" class="s">exact-label policy check</text>
+
+  <!-- quarantine -->
+  <rect class="card untrusted" x="452" y="410" width="330" height="56" rx="8"/>
+  <text x="468" y="432" class="t">quarantine(text, schema) — LLM with no tools</text>
+  <text x="468" y="450" class="s">parses untrusted text into a typed value; result inherits the text's label</text>
+
+  <path class="edge" d="M186 362 L232 362" marker-end="url(#a)"/>
+  <text x="196" y="352" class="s">plan</text>
+  <path class="edge" d="M412 362 L448 362" marker-end="url(#a)"/>
+  <path class="edge" d="M636 362 L672 362" marker-end="url(#a)"/>
+  <path class="edge" d="M544 410 L544 398" marker-end="url(#a)"/>
+  <path class="edge" d="M544 398 L544 410" marker-start="url(#a)"/>
+  <text x="556" y="408" class="s">typed, labelled value</text>
+
+  <!-- ===================== SHARED FOUNDATION ===================== -->
+  <rect x="20" y="500" width="920" height="76" rx="8" fill="#1b1c20" stroke="#2c2f36"/>
+  <text x="36" y="524" class="lane">SHARED</text>
+  <rect class="card" x="120" y="512" width="180" height="52" rx="8"/>
+  <text x="134" y="534" class="t">policy</text>
+  <text x="134" y="551" class="s">YAML lattice · OPA / Rego</text>
+  <rect class="card" x="316" y="512" width="210" height="52" rx="8"/>
+  <text x="330" y="534" class="t">provenance graph + JSONL trace</text>
+  <text x="330" y="551" class="s">replay · what-if policy</text>
+  <rect class="card" x="542" y="512" width="180" height="52" rx="8"/>
+  <text x="556" y="534" class="t">exports</text>
+  <text x="556" y="551" class="s">OCSF · OpenTelemetry · SARIF</text>
+  <rect class="card" x="738" y="512" width="186" height="52" rx="8"/>
+  <text x="752" y="534" class="t">tags</text>
+  <text x="752" y="551" class="s">OWASP LLM Top 10 · ATLAS</text>
+
+  <!-- legend -->
+  <line class="sw trusted" x1="640" y1="86" x2="660" y2="86"/>
+  <text x="666" y="90" class="legend">trusted</text>
+  <line class="sw untrusted" x1="726" y1="86" x2="746" y2="86"/>
+  <text x="752" y="90" class="legend">untrusted</text>
+  <line class="sw" x1="828" y1="86" x2="848" y2="86" stroke="#d62828" stroke-dasharray="6 3"/>
+  <text x="854" y="90" class="legend">blocked</text>
+</svg>

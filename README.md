@@ -9,14 +9,16 @@ model do anything dangerous.
 
 Status: pre-alpha. See `docs/` for the threat model and design.
 
-## Screenshots
+## How it works
 
-`sluice run examples/inbox-assistant` — the same scripted agent with and without sluice, and
-the self-contained provenance graph it writes:
+![sluice architecture: monitor mode wraps an existing agent loop and enforces policy at each tool-call sink; strict mode plans with a model that never sees untrusted content and interprets the plan with exact labels; both share the policy, provenance graph, trace, exports and framework tags](docs/architecture.svg)
 
-| CLI: attack blocked | Provenance graph |
-|---|---|
-| ![CLI output: a vanilla loop forwards invoices to attacker@example.com; under sluice the send_email call is blocked with an explanation](docs/screenshots/cli-block.png) | ![Provenance graph: read_inbox output flows to send_email; the to and body edges are drawn in red as blocked](docs/screenshots/provenance-graph.png) |
+## Provenance graph
+
+Every run writes a self-contained HTML graph of how data flowed. Here the demo's `read_inbox`
+output reaches `send_email`, and the `to` and `body` edges are drawn in red — the blocked flow:
+
+![Provenance graph: read_inbox output flows to send_email; the to and body edges are drawn in red as blocked](docs/screenshots/provenance-graph.png)
 
 ## Quickstart
 
