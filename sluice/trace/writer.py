@@ -4,13 +4,22 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 from typing import IO, Any
 
+Listener = Callable[[dict[str, Any]], None]
+
 
 class TraceWriter:
-    def __init__(self, path: str | Path | None = None) -> None:
+    """Writes events to JSONL and forwards each one to ``listeners`` (SIEM exporters etc.).
+
+    A listener that raises does not stop the trace: telemetry must never be able to break
+    enforcement. The error is recorded as a ``listener_error`` event instead.
+    """
+
+    def __init__(self, path: str | Path | None = None, listeners: Iterable[Listener] = ()) -> None:
+        self.listeners = list(listeners)
         self.path = Path(path) if path else None
         self._fh: IO[str] | None = None
         if self.path:
@@ -26,6 +35,15 @@ class TraceWriter:
         if self._fh:
             self._fh.write(json.dumps(ev, default=str) + "\n")
             self._fh.flush()
+        if type_ == "listener_error":
+            return
+        for listener in self.listeners:
+            try:
+                listener(ev)
+            except Exception as e:
+                self.emit(
+                    "listener_error", listener=repr(listener), error=f"{type(e).__name__}: {e}"
+                )
 
     def close(self) -> None:
         if self._fh:
