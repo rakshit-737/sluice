@@ -18,7 +18,8 @@ from sluice.monitor.ask import rich_ask
 from sluice.monitor.middleware import Monitor
 from sluice.policy.compiler import Policy, PolicyError
 from sluice.scenario import ScenarioError, load_scenario
-from sluice.trace.writer import TraceWriter
+from sluice.trace.replay import replay as replay_trace
+from sluice.trace.writer import TraceWriter, read_trace
 
 app = typer.Typer(help="Information-flow control runtime for LLM agents.", no_args_is_help=True)
 policy_app = typer.Typer(help="Policy utilities.", no_args_is_help=True)
@@ -77,6 +78,40 @@ def run(
     console.print(f"final answer: {res.final}")
     if open_graph:
         webbrowser.open(html_path.resolve().as_uri())
+
+
+@app.command()
+def replay(
+    trace_path: Path = typer.Argument(..., help="trace.jsonl written by sluice"),
+    policy_path: Path | None = typer.Option(None, "--policy", help="Re-decide under this policy"),
+    graph_out: Path | None = typer.Option(None, "--graph", help="Write provenance HTML here"),
+    open_graph: bool = typer.Option(False, "--open/--no-open", help="Open the graph"),
+) -> None:
+    """Rebuild decisions and the provenance graph from a trace, offline."""
+    try:
+        policy = Policy.load(policy_path) if policy_path else None
+        result = replay_trace(read_trace(trace_path), policy)
+    except (OSError, ValueError) as e:
+        console.print(f"[red]cannot replay:[/] {e}")
+        raise typer.Exit(1) from e
+    t = Table(title=f"replay of {trace_path}" + (f" under {policy_path}" if policy_path else ""))
+    for col in ("call", "tool", "recorded", "replayed"):
+        t.add_column(col)
+    for c in result.calls:
+        style = "bold yellow" if c.changed else ""
+        t.add_row(c.id, c.tool, c.original, c.decision.verdict, style=style)
+    console.print(t)
+    for c in result.calls:
+        if not c.decision.allowed:
+            console.print(Panel(Text(c.decision.explain()), title=c.id, border_style="red"))
+    console.print(f"{len(result.changed)} of {len(result.calls)} decisions changed")
+    if graph_out:
+        graph_out.write_text(
+            result.graph.pruned().to_html(f"sluice replay - {trace_path.name}"), encoding="utf-8"
+        )
+        console.print(f"graph: {graph_out}")
+        if open_graph:
+            webbrowser.open(graph_out.resolve().as_uri())
 
 
 @policy_app.command("check")

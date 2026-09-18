@@ -126,3 +126,19 @@ def test_graph_layout_handles_cycles() -> None:
         [Edge("a", "b", "derived"), Edge("b", "a", "derived")],
     )
     assert set(g.layout()) == {"a", "b"}
+
+
+def test_cli_replay(tmp_path: Path) -> None:
+    runner = CliRunner()
+    assert (
+        runner.invoke(app, ["run", str(INBOX), "--out", str(tmp_path), "--no-open"]).exit_code == 0
+    )
+    trace = tmp_path / "inbox-assistant" / "trace.jsonl"
+    r = runner.invoke(app, ["replay", str(trace), "--graph", str(tmp_path / "g.html")])
+    assert r.exit_code == 0, r.output
+    assert "0 of 2 decisions changed" in r.output and (tmp_path / "g.html").exists()
+    lax = tmp_path / "lax.yaml"
+    lax.write_text("sinks: {read_inbox: {}, send_email: {}}", encoding="utf-8")
+    r = runner.invoke(app, ["replay", str(trace), "--policy", str(lax)])
+    assert "1 of 2 decisions changed" in r.output
+    assert runner.invoke(app, ["replay", str(tmp_path / "missing.jsonl")]).exit_code == 1
