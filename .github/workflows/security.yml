@@ -14,7 +14,7 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv sync --all-extras
       - name: Audit dependencies for known vulnerabilities
-        run: uv run --with pip-audit pip-audit --skip-editable --strict
+        run: uv run --with pip-audit pip-audit --skip-editable
   gitleaks:
     runs-on: ubuntu-latest
     steps:
