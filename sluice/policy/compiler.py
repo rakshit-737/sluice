@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -26,6 +27,15 @@ def _req(spec: ArgSpec | None) -> Requirement | None:
         Integrity.parse(spec.require_integrity) if spec.require_integrity else None,
         Confidentiality.parse(spec.max_confidentiality) if spec.max_confidentiality else None,
     )
+
+
+def req_to_dict(req: Requirement) -> dict[str, str]:
+    d: dict[str, str] = {}
+    if req.require_integrity is not None:
+        d["require_integrity"] = req.require_integrity.name.lower()
+    if req.max_confidentiality is not None:
+        d["max_confidentiality"] = req.max_confidentiality.name.lower()
+    return d
 
 
 @dataclass(frozen=True)
@@ -85,6 +95,37 @@ class Policy:
     def deny() -> Policy:
         """The policy used when none is configured: every tool call is blocked."""
         return Policy(deny_all=True)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Policy-file form of this policy (``Policy.from_dict`` inverts it)."""
+        if self.deny_all:
+            return {"deny_all": True}
+        sinks: dict[str, Any] = {}
+        for name, sink in self.sinks.items():
+            d: dict[str, Any] = {"args": {a: req_to_dict(r) for a, r in sink.args.items()}}
+            if sink.all_args is not None:
+                d["all_args"] = req_to_dict(sink.all_args)
+            if sink.on_violation is not None:
+                d["on_violation"] = sink.on_violation
+            sinks[name] = d
+        return {
+            "version": 1,
+            "sources": {
+                n: {
+                    "integrity": lab.integrity.name.lower(),
+                    "confidentiality": lab.confidentiality.name.lower(),
+                }
+                for n, lab in self.sources.items()
+            },
+            "sinks": sinks,
+            "on_violation": self.on_violation,
+        }
+
+    @staticmethod
+    def from_dict(data: dict[str, Any]) -> Policy:
+        if data.get("deny_all"):
+            return Policy.deny()
+        return Policy.compile(PolicyFile.model_validate(data))
 
     # ---- queries --------------------------------------------------------------------------
 

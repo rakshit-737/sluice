@@ -185,3 +185,9 @@ def test_empty_yaml_rejected() -> None:
 def test_load_example_policy() -> None:
     p = Policy.load(Path(__file__).parents[1] / "examples" / "inbox-assistant" / "policy.yaml")
     assert "send_email" in p.sinks
+
+
+def test_to_dict_roundtrip(pol: Policy) -> None:
+    again = Policy.from_dict(pol.to_dict())
+    assert again == pol
+    assert Policy.from_dict(Policy.deny().to_dict()).deny_all
