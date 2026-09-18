@@ -17,6 +17,7 @@ from sluice.labels.value import reset_ids
 from sluice.monitor.ask import rich_ask
 from sluice.monitor.middleware import Monitor
 from sluice.policy.compiler import Policy, PolicyError
+from sluice.policy.trifecta import analyze as analyze_trifecta
 from sluice.scenario import ScenarioError, load_scenario
 from sluice.trace.replay import replay as replay_trace
 from sluice.trace.writer import TraceWriter, read_trace
@@ -112,6 +113,55 @@ def replay(
         console.print(f"graph: {graph_out}")
         if open_graph:
             webbrowser.open(graph_out.resolve().as_uri())
+
+
+@app.command()
+def trifecta(
+    scenario_dir: Path = typer.Argument(..., help="Directory with scenario.py (tool registry)"),
+    policy_path: Path | None = typer.Option(None, "--policy", help="Default: <dir>/policy.yaml"),
+    strict: bool = typer.Option(False, help="Exit 1 if any exfiltration path is not covered"),
+) -> None:
+    """Report private-data / untrusted-content / exfiltration exposure and its coverage."""
+    try:
+        sc = load_scenario(scenario_dir)()
+        path = policy_path or sc.policy_path
+        policy = Policy.load(path) if path else Policy.deny()
+    except (ScenarioError, PolicyError, OSError) as e:
+        console.print(f"[red]error:[/] {e}")
+        raise typer.Exit(2) from e
+    report = analyze_trifecta(sc.registry, policy)
+    legs = Table(title=f"lethal trifecta: {sc.name}")
+    legs.add_column("leg")
+    legs.add_column("tools", overflow="fold")
+    for leg, tools in (
+        ("private data", report.private),
+        ("untrusted content", report.untrusted),
+        ("exfiltration", report.exfil),
+    ):
+        rows = [f"{t}  ({', '.join(r)})" for t, r in tools.items()]
+        legs.add_row(leg, Text("\n".join(rows) or "-"))
+    console.print(legs)
+    verdict = "[red]PRESENT[/]" if report.present else "[green]not present[/]"
+    console.print(f"trifecta: {verdict}")
+    paths = Table(title="exfiltration paths")
+    for col in ("tool", "argument", "guard", "rule", "status"):
+        paths.add_column(col, overflow="fold")
+    colors = {"covered": "green", "partial": "yellow", "uncovered": "red"}
+    for p in report.paths:
+        status = f"[{colors[p.status]}]{p.status}[/]"
+        if not p.args:
+            paths.add_row(p.tool, "-", "no arguments", "-", status)
+        for a in p.args:
+            guard = a.requirement.describe() + ("" if a.enforced else f" (verdict {p.verdict})")
+            mark = "" if a.guarded else " [red]UNGUARDED[/]"
+            paths.add_row(p.tool, a.arg + mark, Text(guard), Text(a.rule), status)
+    console.print(paths)
+    if report.unclassified:
+        console.print(
+            f"[yellow]no capability tags (not classified):[/] {', '.join(report.unclassified)}"
+        )
+    if strict and report.present and report.exposed:
+        raise typer.Exit(1)
 
 
 @policy_app.command("check")

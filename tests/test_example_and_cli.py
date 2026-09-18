@@ -142,3 +142,23 @@ def test_cli_replay(tmp_path: Path) -> None:
     r = runner.invoke(app, ["replay", str(trace), "--policy", str(lax)])
     assert "1 of 2 decisions changed" in r.output
     assert runner.invoke(app, ["replay", str(tmp_path / "missing.jsonl")]).exit_code == 1
+
+
+def test_cli_trifecta(tmp_path: Path) -> None:
+    runner = CliRunner()
+    r = runner.invoke(app, ["trifecta", str(INBOX)])
+    assert r.exit_code == 0, r.output
+    # The trifecta is present (inbox is private + untrusted, send_email exfiltrates),
+    # but the policy guards every argument of the exfiltration path.
+    assert "PRESENT" in r.output and "UNGUARDED" not in r.output
+    assert "send_email" in r.output and "covered" in r.output
+    assert runner.invoke(app, ["trifecta", str(INBOX), "--strict"]).exit_code == 0
+    lax = tmp_path / "lax.yaml"
+    lax.write_text(
+        "sources: {tool.read_inbox: {integrity: untrusted, confidentiality: secret}}\n"
+        "sinks: {read_inbox: {}, send_email: {}}",
+        encoding="utf-8",
+    )
+    r = runner.invoke(app, ["trifecta", str(INBOX), "--policy", str(lax), "--strict"])
+    assert r.exit_code == 1 and "UNGUARDED" in r.output and "PRESENT" in r.output
+    assert runner.invoke(app, ["trifecta", str(tmp_path)]).exit_code == 2
