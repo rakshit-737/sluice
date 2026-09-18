@@ -8,8 +8,8 @@ from sluice.policy import Policy
 from sluice.policy.opa import OpaCli, OpaHttp, OpaPolicy
 
 base = Policy.load("policy.yaml")
-engine = OpaPolicy(base, OpaHttp("http://opa.internal:8181"))            # OPA server
-engine = OpaPolicy(base, OpaCli(("examples/policies/sluice.rego",)))     # local `opa eval`
+engine = OpaPolicy(base, OpaHttp("http://opa.internal:8181"))  # OPA server
+engine = OpaPolicy(base, OpaCli(("examples/policies/sluice.rego",)))  # local `opa eval`
 monitor = Monitor(engine, registry)
 ```
 

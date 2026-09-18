@@ -18,8 +18,9 @@ from sluice.export.ocsf import OcsfExporter
 from sluice.export.otel import OtelExporter
 from sluice.trace import TraceWriter
 
-trace = TraceWriter("trace.jsonl", listeners=[OcsfExporter("/var/log/sluice/ocsf.jsonl"),
-                                               OtelExporter()])
+trace = TraceWriter(
+    "trace.jsonl", listeners=[OcsfExporter("/var/log/sluice/ocsf.jsonl"), OtelExporter()]
+)
 monitor = Monitor(policy, registry, trace=trace)
 ```
 
