@@ -1,0 +1,28 @@
+name: codeql
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 3 * * 2"
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3
+        with:
+          # Code scanning upload needs GitHub Advanced Security on private repos.
+          upload: ${{ github.event.repository.private && 'never' || 'always' }}
+          output: codeql-results
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codeql-sarif
+          path: codeql-results
