@@ -12,6 +12,7 @@ from rich.table import Table
 from rich.text import Text
 
 from sluice.agent import Agent, RunResult
+from sluice.export.ocsf import OcsfExporter
 from sluice.graph.provenance import ProvenanceGraph
 from sluice.labels.value import reset_ids
 from sluice.monitor.ask import rich_ask
@@ -43,6 +44,7 @@ def run(
     out: Path = typer.Option(Path("sluice-out"), help="Where to write trace and graph"),
     vanilla: bool = typer.Option(True, help="Also run without sluice, for comparison"),
     open_graph: bool = typer.Option(True, "--open/--no-open", help="Open the provenance graph"),
+    ocsf: Path | None = typer.Option(None, help="Append OCSF findings (JSONL) for a SIEM"),
 ) -> None:
     """Run a scenario under monitor mode (and, for comparison, without sluice)."""
     try:
@@ -63,10 +65,15 @@ def run(
     if policy is None:
         console.print("[yellow]no policy.yaml: fail-closed deny-all policy in effect[/]")
     run_dir = out / sc.name
-    with TraceWriter(run_dir / "trace.jsonl") as trace:
+    exporter = OcsfExporter(ocsf) if ocsf else None
+    listeners = [exporter] if exporter else []
+    with TraceWriter(run_dir / "trace.jsonl", listeners) as trace:
         monitor = Monitor(policy, sc.registry, trace=trace, ask=rich_ask(console))
         agent = Agent(sc.llm, sc.registry, monitor, system_prompt=sc.system_prompt)
         res = agent.run(sc.user_prompt)
+    if exporter:
+        exporter.close()
+        console.print(f"ocsf: {exporter.count} finding(s) appended to {ocsf}")
     console.print(Panel.fit(f"[bold]{sc.name}[/] - under sluice (monitor mode)"))
     console.print(_executed("tool calls executed", res))
     for d in res.blocked:
@@ -87,11 +94,13 @@ def replay(
     policy_path: Path | None = typer.Option(None, "--policy", help="Re-decide under this policy"),
     graph_out: Path | None = typer.Option(None, "--graph", help="Write provenance HTML here"),
     open_graph: bool = typer.Option(False, "--open/--no-open", help="Open the graph"),
+    ocsf: Path | None = typer.Option(None, help="Backfill the recorded findings as OCSF JSONL"),
 ) -> None:
     """Rebuild decisions and the provenance graph from a trace, offline."""
     try:
         policy = Policy.load(policy_path) if policy_path else None
-        result = replay_trace(read_trace(trace_path), policy)
+        events = list(read_trace(trace_path))
+        result = replay_trace(events, policy)
     except (OSError, ValueError) as e:
         console.print(f"[red]cannot replay:[/] {e}")
         raise typer.Exit(1) from e
@@ -106,6 +115,12 @@ def replay(
         if not c.decision.allowed:
             console.print(Panel(Text(c.decision.explain()), title=c.id, border_style="red"))
     console.print(f"{len(result.changed)} of {len(result.calls)} decisions changed")
+    if ocsf:
+        exporter = OcsfExporter(ocsf)
+        for ev in events:
+            exporter(ev)
+        exporter.close()
+        console.print(f"ocsf: {exporter.count} recorded finding(s) appended to {ocsf}")
     if graph_out:
         graph_out.write_text(
             result.graph.pruned().to_html(f"sluice replay - {trace_path.name}"), encoding="utf-8"

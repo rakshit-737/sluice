@@ -144,6 +144,19 @@ def test_cli_replay(tmp_path: Path) -> None:
     assert runner.invoke(app, ["replay", str(tmp_path / "missing.jsonl")]).exit_code == 1
 
 
+def test_cli_ocsf_export(tmp_path: Path) -> None:
+    runner = CliRunner()
+    siem = tmp_path / "siem.jsonl"
+    r = runner.invoke(
+        app, ["run", str(INBOX), "--out", str(tmp_path), "--no-open", "--ocsf", str(siem)]
+    )
+    assert r.exit_code == 0 and "1 finding(s)" in r.output
+    trace = tmp_path / "inbox-assistant" / "trace.jsonl"
+    r = runner.invoke(app, ["replay", str(trace), "--ocsf", str(siem)])
+    assert "1 recorded finding(s)" in r.output
+    assert len(siem.read_text(encoding="utf-8").splitlines()) == 2
+
+
 def test_cli_trifecta(tmp_path: Path) -> None:
     runner = CliRunner()
     r = runner.invoke(app, ["trifecta", str(INBOX)])
