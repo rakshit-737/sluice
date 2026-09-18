@@ -72,6 +72,39 @@ See [strict mode](docs/strict-mode.md).
   - Violations tagged with OWASP LLM Top 10 (2025) and MITRE ATLAS IDs.
   - An optional OPA/Rego sink-policy backend.
 - **Supply chain:** CI runs CodeQL, pip-audit, gitleaks, Dependabot, and ruff's Bandit rules.
+- **TypeScript SDK** (`sdk/typescript`, `@sluice/ifc`): the labels + policy + monitor guard,
+  ported for Node/browser agents, plus a language-agnostic **MCP guard proxy**. The same
+  `policy.yaml` drives both runtimes.
+
+## Benchmark results
+
+AgentDojo (suite version `v1.2.1`, all four suites), scored with AgentDojo's own utility and
+security checks, attacked with its `important_instructions` template. The agent here is a
+**worst-case obedient oracle** (no API keys): it performs the user task and then the injection
+task's actions, as a fully hijacked model would — so "attack success" with no defence is the
+ceiling, and the question is how far each defence drives it down while keeping utility. Run it
+yourself with `sluice bench`; see [bench/README.md](bench/README.md) and
+[docs/limitations.md](docs/limitations.md) for how to read this.
+
+| suite | defence | utility, no attack | utility under attack | attack success | n (attack) |
+|-------|---------|-------------------:|---------------------:|---------------:|-----------:|
+| all | none | 100.0% | 61.0% | 61.4% | 949 |
+| all | **monitor** | **82.5%** | 79.2% | **8.3%** | 949 |
+| banking | none | 100.0% | 86.8% | 100.0% | 144 |
+| banking | monitor | 81.2% | 87.5% | 0.0% | 144 |
+| travel | none | 100.0% | 18.6% | 82.9% | 140 |
+| travel | monitor | 100.0% | 85.7% | 12.1% | 140 |
+| workspace | none | 100.0% | 58.2% | 38.9% | 560 |
+| workspace | monitor | 87.5% | 80.0% | 7.1% | 560 |
+| slack | none | 100.0% | 97.1% | 100.0% | 105 |
+| slack | monitor | 57.1% | 55.2% | 21.0% | 105 |
+
+Monitor mode cuts attack success from **61.4% to 8.3%** overall while keeping 82.5% of benign
+utility. The residual attack success (highest on slack) is monitor mode's documented heuristic
+limit — paraphrased or beacon-style exfiltration that textual attribution misses; strict mode
+closes that gap at a further utility cost. The utility cost is real and visible (slack's
+destination-guarding is the most aggressive). These are oracle numbers measuring the
+*enforcement layer*; real-model numbers need API keys (`sluice bench --agent llm`).
 
 Docs:
 - [lattice semantics](docs/lattice.md)
