@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --all-extras
       - name: Audit dependencies for known vulnerabilities
         run: uv run --with pip-audit pip-audit --skip-editable
@@ -31,7 +31,7 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync
       - name: Fail on unguarded exfiltration paths in the examples
         run: uv run sluice trifecta examples/inbox-assistant --strict --sarif trifecta.sarif
