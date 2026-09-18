@@ -15,8 +15,8 @@ import json
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from sluice._access import field, text_of
 from sluice.llm import Message, ToolCall
-from sluice.monitor.adapters._util import field, text_of
 from sluice.monitor.guard import Guard, Review, SluiceBlocked
 from sluice.monitor.middleware import Monitor
 from sluice.tools.registry import ToolSpec
