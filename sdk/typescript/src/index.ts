@@ -39,3 +39,4 @@ export {
   type ToolCall,
 } from "./monitor.js";
 export { Guard, SluiceBlocked, parseOutput, type Message, type Review, type Role } from "./guard.js";
+export { McpGuard, type GuardAction, type JsonRpcMessage } from "./mcp.js";
