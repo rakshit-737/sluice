@@ -167,6 +167,7 @@ class Monitor:
             "call",
             id=call_id,
             tool=call.name,
+            parse_error=call.parse_error,
             args=args,
             attribution={
                 k: {
