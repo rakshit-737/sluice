@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -51,8 +52,10 @@ class Monitor:
         self.context: list[LabeledValue[Any]] = []
         self.decisions: list[Decision] = []
         self._calls = itertools.count(1)
+        self.session_id = uuid.uuid4().hex
         self.trace.emit(
             "session",
+            session_id=self.session_id,
             mode="monitor",
             policy=self.policy.to_dict(),
             tools=[spec_to_dict(t) for t in registry],
