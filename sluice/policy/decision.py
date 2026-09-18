@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -86,3 +87,17 @@ class Decision:
                 for v in self.violations
             ],
         }
+
+
+AskHandler = Callable[[Decision], bool]
+
+
+def resolve_ask(d: Decision, ask: AskHandler | None) -> Decision:
+    """Turn an ``ask`` verdict into allow/block. No approver means block (fail closed)."""
+    if d.verdict != "ask":
+        return d
+    if ask is None:
+        return d.resolved("block", "ask: no interactive approver, fail closed")
+    approved = ask(d)
+    note = f"ask: user {'approved' if approved else 'denied'}"
+    return d.resolved("allow" if approved else "block", note)

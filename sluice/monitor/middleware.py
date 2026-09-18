@@ -5,7 +5,6 @@ from __future__ import annotations
 import itertools
 import json
 import uuid
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -14,12 +13,12 @@ from sluice.labels.value import LabeledValue
 from sluice.llm import ToolCall
 from sluice.monitor.attribution import Attribution, Attributor, Match, as_text
 from sluice.policy.compiler import Policy
-from sluice.policy.decision import Decision
+from sluice.policy.decision import AskHandler, Decision, resolve_ask
 from sluice.policy.engine import PolicyEngine
 from sluice.tools.registry import ToolRegistry, spec_to_dict
 from sluice.trace.writer import TraceWriter
 
-AskHandler = Callable[[Decision], bool]
+__all__ = ["AskHandler", "CheckedCall", "Monitor", "render_output"]
 
 MODEL_SOURCE = "model"
 REF_KEY = "$ref"
@@ -205,14 +204,7 @@ class Monitor:
         return m.describe(f"{lv.origin}, {lv.label}" if lv else "")
 
     def _resolve(self, d: Decision) -> Decision:
-        if d.verdict != "ask":
-            return d
-        if self.ask is None:
-            return d.resolved("block", "ask: no interactive approver, fail closed")
-        approved = self.ask(d)
-        return d.resolved(
-            "allow" if approved else "block", f"ask: user {'approved' if approved else 'denied'}"
-        )
+        return resolve_ask(d, self.ask)
 
 
 def _ref(raw: Any) -> str | None:
