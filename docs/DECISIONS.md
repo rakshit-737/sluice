@@ -94,3 +94,27 @@ secret data, and the sink's verdict actually blocks (`log` does not; `ask` does,
 fails closed). A channel is covered when every argument is guarded; zero-argument channels
 carry no data and are covered. Classification uses capability tags *and* policy source
 labels, so undeclared sources (fail-closed untrusted/secret) count toward the trifecta.
+
+## D17. Telemetry is a listener, and listener failures cannot affect enforcement
+Exporters (OCSF, OpenTelemetry) subscribe to trace events. A raising listener is caught and
+recorded as `listener_error`; the decision already taken stands. Rejected: exporting inside
+the decision path (a SIEM outage would become an agent outage, or worse, a bypass if the
+error were swallowed at the wrong place).
+
+## D18. OCSF Detection Finding (2004) as the SIEM schema
+OCSF is the vendor-neutral schema ingested natively by the major SIEMs and AWS Security Lake.
+A blocked tool call is a finding with a disposition, which matches Detection Finding better
+than an activity class. sluice-specific detail lives in `unmapped`, as OCSF recommends.
+Rejected: CEF/LEEF (lossy, no nested evidence), a custom JSON schema (every SIEM needs a parser).
+
+## D19. OPA sees labels, never argument values; stricter verdict wins
+Sending values would copy whatever private data the agent handles to the policy service.
+Rules over labels (integrity, confidentiality, sources, tool caps) cover the IFC use case.
+OPA is combined with the YAML policy by taking the stricter verdict, so adding OPA can only
+tighten enforcement. Rejected: OPA-only mode (loses fail-closed YAML defaults), OPA overriding
+YAML (a permissive Rego rule could silently relax a block).
+
+## D20. Framework tags are derived from the violated requirement
+Integrity failures map to OWASP LLM01/LLM06 and ATLAS AML.T0051.001; confidentiality failures
+to LLM02 and AML.T0057. Tags come from *what the rule prevented*, not from guessing the
+attacker's intent, so they are deterministic and testable.
