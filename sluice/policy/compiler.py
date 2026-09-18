@@ -29,15 +29,6 @@ def _req(spec: ArgSpec | None) -> Requirement | None:
     )
 
 
-def req_to_dict(req: Requirement) -> dict[str, str]:
-    d: dict[str, str] = {}
-    if req.require_integrity is not None:
-        d["require_integrity"] = req.require_integrity.name.lower()
-    if req.max_confidentiality is not None:
-        d["max_confidentiality"] = req.max_confidentiality.name.lower()
-    return d
-
-
 @dataclass(frozen=True)
 class CompiledSink:
     args: Mapping[str, Requirement]
@@ -102,9 +93,9 @@ class Policy:
             return {"deny_all": True}
         sinks: dict[str, Any] = {}
         for name, sink in self.sinks.items():
-            d: dict[str, Any] = {"args": {a: req_to_dict(r) for a, r in sink.args.items()}}
+            d: dict[str, Any] = {"args": {a: r.to_dict() for a, r in sink.args.items()}}
             if sink.all_args is not None:
-                d["all_args"] = req_to_dict(sink.all_args)
+                d["all_args"] = sink.all_args.to_dict()
             if sink.on_violation is not None:
                 d["on_violation"] = sink.on_violation
             sinks[name] = d

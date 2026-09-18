@@ -12,7 +12,6 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from sluice.labels.label import Confidentiality, Integrity
 from sluice.labels.requirement import Requirement
 
 # Capability tags.
@@ -55,34 +54,14 @@ class ToolSpec:
         }
 
 
-def _req_dict(r: Requirement) -> dict[str, str]:
-    d: dict[str, str] = {}
-    if r.require_integrity is not None:
-        d["require_integrity"] = r.require_integrity.name.lower()
-    if r.max_confidentiality is not None:
-        d["max_confidentiality"] = r.max_confidentiality.name.lower()
-    return d
-
-
-def _req_from(d: Mapping[str, str] | None) -> Requirement | None:
-    if d is None:
-        return None
-    integ = d.get("require_integrity")
-    conf = d.get("max_confidentiality")
-    return Requirement(
-        Integrity.parse(integ) if integ else None,
-        Confidentiality.parse(conf) if conf else None,
-    )
-
-
 def spec_to_dict(spec: ToolSpec) -> dict[str, Any]:
     """Manifest entry for traces: everything except the callable."""
     return {
         "name": spec.name,
         "source": spec.source,
         "caps": sorted(spec.caps),
-        "sink": {a: _req_dict(r) for a, r in spec.sink.items()},
-        "all_args": _req_dict(spec.all_args) if spec.all_args is not None else None,
+        "sink": {a: r.to_dict() for a, r in spec.sink.items()},
+        "all_args": spec.all_args.to_dict() if spec.all_args is not None else None,
         "fields": dict(spec.fields),
         "description": spec.description,
         "params": dict(spec.params),
@@ -95,14 +74,15 @@ def _replay_only(*args: Any, **kwargs: Any) -> Any:
 
 
 def spec_from_dict(d: Mapping[str, Any]) -> ToolSpec:
-    sink = {a: r for a, v in d.get("sink", {}).items() if (r := _req_from(v)) is not None}
+    sink = {a: Requirement.from_dict(v) for a, v in d.get("sink", {}).items()}
+    all_args = d.get("all_args")
     return ToolSpec(
         name=d["name"],
         fn=_replay_only,
         source=d["source"],
         caps=frozenset(d.get("caps", [])),
         sink=sink,
-        all_args=_req_from(d.get("all_args")),
+        all_args=Requirement.from_dict(all_args) if all_args is not None else None,
         fields=dict(d.get("fields", {})),
         description=d.get("description", ""),
         params=dict(d.get("params", {})),
