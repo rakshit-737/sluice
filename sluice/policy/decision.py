@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from sluice.labels.label import Label
 from sluice.labels.requirement import Requirement
+from sluice.policy.frameworks import Tag, tags_for
 
 Verdict = Literal["allow", "block", "ask", "log"]
 
@@ -20,12 +21,18 @@ class Violation:
     failures: tuple[str, ...]
     evidence: tuple[str, ...] = ()  # how the arg's label was derived
 
+    @property
+    def tags(self) -> tuple[Tag, ...]:
+        return tags_for(self.label, self.requirement)
+
     def explain(self) -> str:
         why = "; ".join(self.failures)
         srcs = ", ".join(sorted(self.label.sources)) or "-"
         lines = [f"argument `{self.arg}` is {self.label.short()} (from {srcs}): {why}"]
         lines.append(f"  rule: {self.rule} ({self.requirement.describe()})")
         lines.extend(f"  evidence: {e}" for e in self.evidence)
+        if self.tags:
+            lines.append(f"  maps to: {'; '.join(str(t) for t in self.tags)}")
         return "\n".join(lines)
 
 
@@ -72,6 +79,9 @@ class Decision:
                     "rule": v.rule,
                     "failures": list(v.failures),
                     "evidence": list(v.evidence),
+                    "tags": [
+                        {"framework": t.framework, "id": t.id, "name": t.name} for t in v.tags
+                    ],
                 }
                 for v in self.violations
             ],

@@ -191,3 +191,14 @@ def test_to_dict_roundtrip(pol: Policy) -> None:
     again = Policy.from_dict(pol.to_dict())
     assert again == pol
     assert Policy.from_dict(Policy.deny().to_dict()).deny_all
+
+
+def test_framework_tags(pol: Policy, reg: ToolRegistry) -> None:
+    d = pol.decide("send_email", {"to": UNTRUSTED, "body": SECRET}, reg)
+    by_arg = {v.arg: {t.id for t in v.tags} for v in d.violations}
+    assert by_arg["to"] == {"LLM01:2025", "AML.T0051.001", "LLM06:2025"}
+    assert by_arg["body"] == {"LLM02:2025", "AML.T0057"}
+    assert "maps to: LLM01:2025 Prompt Injection" in d.explain()
+    assert d.to_json()["violations"][0]["tags"][0]["framework"] == "OWASP-LLM"
+    trusted_fail = pol.decide("send_email", {"to": TRUSTED, "body": TRUSTED}, reg)
+    assert trusted_fail.violations == ()

@@ -15,8 +15,9 @@ from sluice.policy import Policy
 
 monitor = Monitor(Policy.load("policy.yaml"), registry)
 client = guard_anthropic(anthropic.Anthropic(), monitor)
-resp = client.messages.create(model="claude-sonnet-5", max_tokens=1024,
-                              tools=tools, messages=messages)
+resp = client.messages.create(
+    model="claude-sonnet-5", max_tokens=1024, tools=tools, messages=messages
+)
 # resp.content never contains a blocked tool_use block
 ```
 
@@ -56,9 +57,14 @@ from sluice.tools import COMMS, FS_READ
 from sluice.tools.mcp import list_all_tools, portal_caller, register_mcp_tools
 
 with start_blocking_portal() as portal:
-    tools = portal.call(list_all_tools, session)          # an mcp.ClientSession
-    register_mcp_tools(registry, tools, portal_caller(portal, session), server="files",
-                       caps={"read_file": [FS_READ], "send": [COMMS]})
+    tools = portal.call(list_all_tools, session)  # an mcp.ClientSession
+    register_mcp_tools(
+        registry,
+        tools,
+        portal_caller(portal, session),
+        server="files",
+        caps={"read_file": [FS_READ], "send": [COMMS]},
+    )
 ```
 
 Name each tool's output in the policy as `mcp.<server>.<tool>`; unnamed ones fail closed.
