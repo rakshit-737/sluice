@@ -60,3 +60,18 @@ npm run build
 ```
 
 Apache-2.0.
+
+## MCP guard proxy (language-agnostic)
+
+Put sluice in front of any MCP server, so an agent in *any* language gets enforcement by
+routing its MCP traffic through the proxy:
+
+```
+npx sluice-mcp-guard --policy policy.yaml --server files -- \
+  npx -y @modelcontextprotocol/server-filesystem /data
+```
+
+The proxy learns the tool set from `tools/list`, labels every `tools/call` result as untrusted
+output of that tool (`mcp.<server>.<tool>`), attributes each new call's arguments against prior
+results, and answers a policy-violating call with a JSON-RPC error instead of forwarding it. The
+enforcement core (`McpGuard`) is a pure message processor, exported from `@sluice/ifc/mcp`.
