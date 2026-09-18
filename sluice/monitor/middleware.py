@@ -14,7 +14,7 @@ from sluice.llm import ToolCall
 from sluice.monitor.attribution import Attribution, Attributor, Match, as_text
 from sluice.policy.compiler import Policy
 from sluice.policy.decision import Decision
-from sluice.tools.registry import ToolRegistry
+from sluice.tools.registry import ToolRegistry, spec_to_dict
 from sluice.trace.writer import TraceWriter
 
 AskHandler = Callable[[Decision], bool]
@@ -51,6 +51,12 @@ class Monitor:
         self.context: list[LabeledValue[Any]] = []
         self.decisions: list[Decision] = []
         self._calls = itertools.count(1)
+        self.trace.emit(
+            "session",
+            mode="monitor",
+            policy=self.policy.to_dict(),
+            tools=[spec_to_dict(t) for t in registry],
+        )
 
     # ---- sources --------------------------------------------------------------------------
 

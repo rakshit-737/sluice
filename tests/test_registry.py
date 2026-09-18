@@ -58,3 +58,22 @@ def test_register_spec_directly() -> None:
     reg = ToolRegistry()
     spec = make_spec(plain, name="p2", source="custom")
     assert reg.register(spec) is spec and reg.get("p2") is spec and reg.get("nope") is None
+
+
+def test_spec_manifest_roundtrip() -> None:
+    from sluice.labels import Confidentiality
+    from sluice.labels.requirement import Requirement
+    from sluice.tools.registry import spec_from_dict, spec_to_dict
+
+    spec = make_spec(
+        plain,
+        sink={"x": Requirement.trusted()},
+        all_args=Requirement(max_confidentiality=Confidentiality.INTERNAL),
+        fields={"a": "b"},
+    )
+    back = spec_from_dict(spec_to_dict(spec))
+    assert spec_to_dict(back) == spec_to_dict(spec)
+    with pytest.raises(RuntimeError, match="cannot be executed"):
+        back.fn(1)
+    bare = spec_from_dict({"name": "n", "source": "s", "sink": {"q": {}}})
+    assert bare.all_args is None and bare.sink == {"q": Requirement()}
