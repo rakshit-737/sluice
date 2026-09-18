@@ -182,3 +182,8 @@ def test_anthropic_llm_in_own_loop(monitor: Monitor) -> None:
     assert req["tools"][0]["input_schema"]["type"] == "object"
     assert req["system"]
     assert req["messages"][-1]["content"][0]["type"] == "tool_result"
+
+
+def test_streaming_refused(monitor: Monitor) -> None:
+    with pytest.raises(NotImplementedError):
+        guard_anthropic(FakeClient([]), monitor).messages.create(messages=[], stream=True)

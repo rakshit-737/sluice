@@ -87,6 +87,9 @@ class _GuardedMessages:
         self._guard = guard
 
     def create(self, **kwargs: Any) -> Any:
+        if kwargs.get("stream"):
+            # Tool input arrives as partial JSON deltas; reviewing a partial call is unsound.
+            raise NotImplementedError("sluice: streaming is not supported by the guard yet")
         self._guard.ingest(to_neutral(kwargs.get("system"), kwargs.get("messages", [])))
         resp = self._inner.create(**kwargs)
         review = self._guard.review(from_response(resp))
