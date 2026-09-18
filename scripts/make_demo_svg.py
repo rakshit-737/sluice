@@ -71,7 +71,7 @@ def build(text: str) -> str:
         f'fill="#ffbd2e"/><circle cx="56" cy="16" r="5" fill="#27c93f"/>'
         f'<text x="{width / 2:.0f}" y="20" fill="{DIM}" text-anchor="middle" '
         f'font-size="12">sluice run examples/inbox-assistant</text>'
-        f'{"".join(rows)}</svg>'
+        f"{''.join(rows)}</svg>"
     )
 
 

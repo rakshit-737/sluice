@@ -311,6 +311,7 @@ def run_benchmark(
     agent: str = "oracle",
     llm_factory: LLMFactory | None = None,
     limit: int | None = None,
+    injection_limit: int | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> BenchResult:
     modes = list(modes)
@@ -324,7 +325,8 @@ def run_benchmark(
     for suite in load_suites(suites).values():
         attack = _attack(suite)
         user_tasks = list(suite.user_tasks.values())[:limit]
-        injection_tasks = list(suite.injection_tasks.values())[:limit]
+        # Utility is measured over every user task; attack success over a fixed injection subset.
+        injection_tasks = list(suite.injection_tasks.values())[: injection_limit or limit]
         for ut in user_tasks:
             try:
                 injectable = bool(attack.get_injection_candidates(ut))

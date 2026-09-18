@@ -153,7 +153,10 @@ def bench(
     modes: str = typer.Option("none,monitor", help="Comma-separated: none, monitor, strict"),
     agent: str = typer.Option("oracle", help="oracle (no API key) or llm"),
     model: str | None = typer.Option(None, help="provider:model for --agent llm"),
-    limit: int | None = typer.Option(None, help="Max user and injection tasks per suite"),
+    limit: int | None = typer.Option(None, help="Max user (and injection) tasks per suite"),
+    injection_limit: int | None = typer.Option(
+        None, help="Max injection tasks per suite (utility still uses all user tasks)"
+    ),
     out: Path = typer.Option(Path("bench/results/latest"), help="Output directory"),
 ) -> None:
     """Run the AgentDojo benchmark (needs the `bench` extra)."""
@@ -176,6 +179,7 @@ def bench(
             agent,
             factory,
             limit,
+            injection_limit,
         )
     except ValueError as e:
         console.print(f"[red]error:[/] {e}")
