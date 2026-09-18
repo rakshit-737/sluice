@@ -15,6 +15,7 @@ from sluice.llm import ToolCall
 from sluice.monitor.attribution import Attribution, Attributor, Match, as_text
 from sluice.policy.compiler import Policy
 from sluice.policy.decision import Decision
+from sluice.policy.engine import PolicyEngine
 from sluice.tools.registry import ToolRegistry, spec_to_dict
 from sluice.trace.writer import TraceWriter
 
@@ -36,14 +37,14 @@ class CheckedCall:
 class Monitor:
     def __init__(
         self,
-        policy: Policy | None,
+        policy: PolicyEngine | None,
         registry: ToolRegistry,
         *,
         attributor: Attributor | None = None,
         trace: TraceWriter | None = None,
         ask: AskHandler | None = None,
     ) -> None:
-        self.policy = policy or Policy.deny()
+        self.policy: PolicyEngine = policy if policy is not None else Policy.deny()
         self.registry = registry
         self.attributor = attributor or Attributor()
         self.trace = trace or TraceWriter()
