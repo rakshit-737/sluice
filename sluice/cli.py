@@ -14,6 +14,7 @@ from rich.text import Text
 from sluice.agent import Agent, RunResult
 from sluice.graph.provenance import ProvenanceGraph
 from sluice.labels.value import reset_ids
+from sluice.monitor.ask import rich_ask
 from sluice.monitor.middleware import Monitor
 from sluice.policy.compiler import Policy, PolicyError
 from sluice.scenario import ScenarioError, load_scenario
@@ -61,7 +62,7 @@ def run(
         console.print("[yellow]no policy.yaml: fail-closed deny-all policy in effect[/]")
     run_dir = out / sc.name
     with TraceWriter(run_dir / "trace.jsonl") as trace:
-        monitor = Monitor(policy, sc.registry, trace=trace)
+        monitor = Monitor(policy, sc.registry, trace=trace, ask=rich_ask(console))
         agent = Agent(sc.llm, sc.registry, monitor, system_prompt=sc.system_prompt)
         res = agent.run(sc.user_prompt)
     console.print(Panel.fit(f"[bold]{sc.name}[/] - under sluice (monitor mode)"))
