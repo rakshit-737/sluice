@@ -38,10 +38,26 @@ monitor = Monitor(Policy.load("policy.yaml"), registry)
 Agent(llm, registry, monitor).run("Summarize my inbox")
 ```
 
+### Strict mode
+
+```
+uv run sluice run examples/inbox-assistant --mode strict
+```
+
+A planner model writes a program from the request alone and never sees an email. The
+interpreter runs that program with exact labels. A quarantined model with no tools turns
+email text into typed data. In the demo the quarantined model *is* fooled into extracting
+`attacker@example.com` as a forwarding address. That value carries the email's untrusted label,
+so `send_email` is blocked, while the inbox summary still reaches the user.
+See [strict mode](docs/strict-mode.md).
+
 ## What's in the box
 
 - **Labels and policy:** an integrity × confidentiality lattice with property-tested laws, and a
   YAML policy that fails closed and explains every decision.
+- **Strict mode:** a whitelisted plan language, a label-tracking interpreter with implicit-flow
+  labels, and a tool-less quarantine model. Property tests over random plans check that no
+  untrusted data reaches a guarded sink and that untrusted data cannot change which calls run.
 - **Monitor mode:** drop-in guards for the Anthropic, OpenAI-compatible and Ollama SDKs; MCP tool
   registration; interactive `ask` approvals.
 - **Forensics:** self-contained JSONL traces, `sluice replay` with what-if policies, and an
@@ -57,6 +73,7 @@ Agent(llm, registry, monitor).run("Summarize my inbox")
 
 Docs:
 - [lattice semantics](docs/lattice.md)
+- [strict mode](docs/strict-mode.md)
 - [monitor-mode limits](docs/monitor-limits.md)
 - [adapters](docs/adapters.md)
 - [SIEM / OTel / SARIF](docs/siem.md)
