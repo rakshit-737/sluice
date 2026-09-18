@@ -116,7 +116,9 @@ class Policy:
     def from_dict(data: dict[str, Any]) -> Policy:
         if data.get("deny_all"):
             return Policy.deny()
-        return Policy.compile(PolicyFile.model_validate(data))
+        # "x-" keys are annotations from wrapping engines (e.g. "x-opa"), not policy fields.
+        core = {k: v for k, v in data.items() if not k.startswith("x-")}
+        return Policy.compile(PolicyFile.model_validate(core))
 
     # ---- queries --------------------------------------------------------------------------
 
