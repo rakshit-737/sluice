@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import importlib.util
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+from pydantic import BaseModel
 
 from sluice.llm import LLMClient
 from sluice.tools.registry import ToolRegistry
@@ -22,6 +24,10 @@ class Scenario:
     user_prompt: str
     system_prompt: str = "You are a helpful assistant."
     policy_path: Path | None = None
+    # Strict mode (optional): planner and quarantine models plus quarantine schemas.
+    planner_llm: LLMClient | None = None
+    quarantine_llm: LLMClient | None = None
+    schemas: dict[str, type[BaseModel]] = field(default_factory=dict)
 
 
 class ScenarioError(RuntimeError):
