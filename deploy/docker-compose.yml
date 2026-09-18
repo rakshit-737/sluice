@@ -1,0 +1,34 @@
+# Deployable topology: sluice enforcing sink policy through an OPA/Rego sidecar.
+#
+#   docker compose -f deploy/docker-compose.yml up --build
+#
+# `opa` serves the example Rego policy; `sluice-opa-demo` builds an OpaPolicy that queries it
+# over HTTP and prints a blocked decision, proving the sidecar path end to end. Swap the demo
+# service's command for `sluice run ...` or `sluice bench ...` to run a real agent.
+services:
+  opa:
+    image: openpolicyagent/opa:latest
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--log-level=error"
+      - "/policies/sluice.rego"
+    volumes:
+      - ../examples/policies:/policies:ro
+    healthcheck:
+      test: ["CMD", "/opa", "eval", "--fail-defined", "data"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  sluice-opa-demo:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    depends_on:
+      opa:
+        condition: service_healthy
+    environment:
+      SLUICE_OPA_URL: "http://opa:8181"
+    entrypoint: ["python", "deploy/opa_demo.py"]

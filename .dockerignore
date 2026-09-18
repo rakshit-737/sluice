@@ -1,0 +1,12 @@
+.git
+.venv
+sdk/typescript/node_modules
+sdk/typescript/dist
+**/__pycache__
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.hypothesis
+bench/results
+sluice-out
+.opencode
