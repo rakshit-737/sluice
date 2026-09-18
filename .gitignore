@@ -11,5 +11,8 @@ htmlcov/
 dist/
 build/
 *.egg-info/
-sluice-out/
+
 .opencode/
+sluice-out/
+bench-smoke/
+bench/results/latest/
