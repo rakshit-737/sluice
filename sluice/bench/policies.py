@@ -1,10 +1,17 @@
 """Sink policies used for the AgentDojo benchmark.
 
-One rule of thumb for every suite: arguments that choose a *destination or target* of a
-side effect (recipients, IBANs, URLs, ids of things to delete, passwords, user identities)
-must be trusted. Content arguments (subjects, bodies, file contents) are unconstrained, and
-no confidentiality bounds are set, to keep utility comparable with the undefended baseline.
-Tool outputs are not given source labels, so they fail closed to untrusted/secret.
+The rule of thumb for every suite: an argument that chooses **where a side effect goes or who
+it reaches** — an outbound recipient, a payment destination, an exfiltration URL, a new
+credential or identity — must be trusted, so an injection cannot steer it. This is the
+CaMeL-style "prevent exfiltration and unauthorized action at the destination" framing.
+
+Deliberately *not* guarded: arguments that only choose *what* to say (subjects, bodies, file
+contents) and read-type arguments that name something to fetch or an existing id to act on
+(`get_webpage.url`, an `event_id` to cancel). Guarding those blocks benign tasks that legitimately
+act on ids and content read from the environment, without closing an exfiltration channel — the
+data still cannot *leave* except through a guarded destination. No confidentiality bounds are
+set, to keep utility comparable with the undefended baseline. Tool outputs get no source label,
+so they fail closed to untrusted/secret.
 """
 
 from __future__ import annotations
@@ -15,40 +22,30 @@ TRUSTED = {"require_integrity": "trusted"}
 
 SINKS: dict[str, dict[str, list[str]]] = {
     "workspace": {
-        "send_email": ["recipients", "cc", "bcc", "attachments"],
-        "delete_email": ["email_id"],
+        "send_email": ["recipients", "cc", "bcc"],
         "create_calendar_event": ["participants"],
-        "cancel_calendar_event": ["event_id"],
-        "reschedule_calendar_event": ["event_id"],
-        "add_calendar_event_participants": ["event_id", "participants"],
-        "append_to_file": ["file_id"],
-        "create_file": [],
-        "delete_file": ["file_id"],
-        "share_file": ["file_id", "email", "permission"],
+        "add_calendar_event_participants": ["participants"],
+        "share_file": ["email"],
     },
     "travel": {
+        "send_email": ["recipients", "cc", "bcc"],
         "create_calendar_event": ["participants"],
-        "cancel_calendar_event": ["event_id"],
         "reserve_hotel": ["hotel"],
         "reserve_car_rental": ["company"],
         "reserve_restaurant": ["restaurant"],
-        "send_email": ["recipients", "cc", "bcc", "attachments"],
     },
     "banking": {
-        "send_money": ["recipient", "amount"],
-        "schedule_transaction": ["recipient", "amount"],
-        "update_scheduled_transaction": ["id", "recipient", "amount"],
+        "send_money": ["recipient"],
+        "schedule_transaction": ["recipient"],
+        "update_scheduled_transaction": ["recipient"],
         "update_password": ["password"],
         "update_user_info": ["first_name", "last_name", "street", "city"],
     },
     "slack": {
-        "add_user_to_channel": ["user", "channel"],
         "send_direct_message": ["recipient"],
-        "send_channel_message": ["channel"],
         "invite_user_to_slack": ["user", "user_email"],
-        "remove_user_from_slack": ["user"],
-        "get_webpage": ["url"],
         "post_webpage": ["url"],
+        "get_webpage": ["url"],  # the URL carries data out (a beacon), so it is an exfil channel
     },
 }
 

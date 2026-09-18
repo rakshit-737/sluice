@@ -198,17 +198,42 @@ def run_one(
     inj_id = injection_task.ID if injection_task is not None else None
     try:
         if agent == "oracle":
-            output, blocked = _oracle(user_task, injection_task, pre, registry, policy, mode)
+            output, blocked, traces = _oracle(
+                user_task, injection_task, pre, registry, policy, mode
+            )
         else:
             assert llm_factory is not None
-            output, blocked = _llm(user_task, registry, policy, mode, llm_factory)
+            output, blocked, traces = _llm(user_task, registry, policy, mode, llm_factory)
     except Exception as e:  # a crashing run is a failed run, not a crashed benchmark
         return Outcome(suite.name, user_task.ID, inj_id, mode, agent, False, None, 0, repr(e))
-    utility = bool(user_task.utility(output, pre, ref.env))
+    post = ref.env
+    utility = _check(user_task.utility_from_traces, user_task.utility, output, pre, post, traces)
     success = None
     if injection_task is not None:
-        success = bool(injection_task.security(output, pre, ref.env))
+        success = _check(
+            injection_task.security_from_traces, injection_task.security, output, pre, post, traces
+        )
     return Outcome(suite.name, user_task.ID, inj_id, mode, agent, utility, success, blocked)
+
+
+def _to_calls(executed: list[tuple[str, dict[str, Any]]]) -> list[Any]:
+    from agentdojo.functions_runtime import FunctionCall
+
+    return [FunctionCall(function=n, args=dict(a)) for n, a in executed]
+
+
+def _check(
+    from_traces: Any, from_env: Any, output: str, pre: Any, post: Any, traces: list[Any]
+) -> bool:
+    """AgentDojo scores some tasks from the executed-call trace, others from the environment.
+    Prefer the trace check; fall back to the env check; a not-implemented check is a failure."""
+    result = from_traces(output, pre, post, traces)
+    if result is not None:
+        return bool(result)
+    try:
+        return bool(from_env(output, pre, post))
+    except NotImplementedError:
+        return False
 
 
 def _oracle(
@@ -218,7 +243,7 @@ def _oracle(
     registry: ToolRegistry,
     policy: Policy,
     mode: str,
-) -> tuple[str, int]:
+) -> tuple[str, int, list[Any]]:
     calls = [(c, True) for c in user_task.ground_truth(pre.model_copy(deep=True))]
     if injection_task is not None:
         calls += [(c, False) for c in injection_task.ground_truth(pre.model_copy(deep=True))]
@@ -228,12 +253,14 @@ def _oracle(
         monitor.observe(user_task.PROMPT, "user")
     blocked = 0
     user_blocked = False
+    executed: list[tuple[str, dict[str, Any]]] = []
     for i, (c, is_user) in enumerate(calls):
         spec = registry.get(c.function)
         assert spec is not None
         args = dict(c.args)
         if monitor is None:
             spec.fn(**args)
+            executed.append((c.function, args))
             continue
         checked = monitor.check(ToolCall(f"gt{i}", c.function, args))
         if not checked.decision.allowed:
@@ -241,23 +268,25 @@ def _oracle(
             user_blocked |= is_user
             continue
         monitor.record_output(checked, spec.fn(**checked.args))
-    return ("" if user_blocked else user_task.GROUND_TRUTH_OUTPUT), blocked
+        executed.append((c.function, checked.args))
+    output = "" if user_blocked else user_task.GROUND_TRUTH_OUTPUT
+    return output, blocked, _to_calls(executed)
 
 
 def _llm(
     user_task: Any, registry: ToolRegistry, policy: Policy, mode: str, llm_factory: LLMFactory
-) -> tuple[str, int]:
+) -> tuple[str, int, list[Any]]:
     if mode == "strict":
         interp = Interpreter(
             policy, registry, quarantine=LLMQuarantine(llm_factory()), schemas=SCHEMAS
         )
         run = StrictAgent(Planner(llm_factory(), registry, SCHEMAS), interp).run(user_task.PROMPT)
-        return run.result.answer, len(run.result.blocked)
+        return run.result.answer, len(run.result.blocked), _to_calls(run.result.executed)
     monitor = Monitor(policy, registry, trace=TraceWriter()) if mode == "monitor" else None
     res = Agent(llm_factory(), registry, monitor, system_prompt=SYSTEM_PROMPT, max_steps=15).run(
         user_task.PROMPT
     )
-    return res.final, len(res.blocked)
+    return res.final, len(res.blocked), _to_calls(res.executed)
 
 
 # ---- the benchmark -----------------------------------------------------------------------------

@@ -62,6 +62,7 @@ class StrictResult:
     status: Literal["completed", "blocked", "error"]
     answers: list[LV] = field(default_factory=list)
     decisions: list[Decision] = field(default_factory=list)
+    executed: list[tuple[str, dict[str, Any]]] = field(default_factory=list)  # allowed tool calls
     error: str = ""
 
     @property
@@ -224,7 +225,7 @@ class Interpreter:
 
     def run(self, plan: Plan, inputs: Mapping[str, LV] | None = None) -> StrictResult:
         state = _State(dict(inputs or {}))
-        result = StrictResult("completed", state.answers, state.decisions)
+        result = StrictResult("completed", state.answers, state.decisions, state.executed)
         self.trace.emit("plan", source=plan.source)
         try:
             self._block(plan.tree.body, state)
@@ -475,8 +476,10 @@ class Interpreter:
         )
         if not decision.allowed:
             raise PolicyStop(decision)
+        plain_args = {k: unwrap(v) for k, v in bound.items()}
+        st.executed.append((spec.name, plain_args))
         try:
-            raw = spec.fn(**{k: unwrap(v) for k, v in bound.items()})
+            raw = spec.fn(**plain_args)
         except Exception as ex:
             raise PlanRuntimeError(f"tool {spec.name} failed: {type(ex).__name__}: {ex}", c) from ex
         args_label = join_all(labels.values()).with_provenance(*(v.id for v in bound.values()))
@@ -553,6 +556,7 @@ class _State:
     env: dict[str, LV]
     answers: list[LV] = field(default_factory=list)
     decisions: list[Decision] = field(default_factory=list)
+    executed: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
     pc_stack: list[Label] = field(default_factory=list)
     steps: int = 0
     tool_calls: int = 0
