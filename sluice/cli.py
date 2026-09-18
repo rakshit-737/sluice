@@ -9,6 +9,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
 
@@ -20,8 +21,13 @@ from sluice.labels.value import reset_ids
 from sluice.monitor.ask import rich_ask
 from sluice.monitor.middleware import Monitor
 from sluice.policy.compiler import Policy, PolicyError
+from sluice.policy.decision import Decision
 from sluice.policy.trifecta import analyze as analyze_trifecta
-from sluice.scenario import ScenarioError, load_scenario
+from sluice.scenario import Scenario, ScenarioError, load_scenario
+from sluice.strict.agent import StrictAgent
+from sluice.strict.interpreter import Interpreter
+from sluice.strict.planner import Planner
+from sluice.strict.quarantine import LLMQuarantine
 from sluice.trace.replay import replay as replay_trace
 from sluice.trace.writer import TraceWriter, read_trace
 
@@ -53,8 +59,12 @@ def run(
     vanilla: bool = typer.Option(True, help="Also run without sluice, for comparison"),
     open_graph: bool = typer.Option(True, "--open/--no-open", help="Open the provenance graph"),
     ocsf: Path | None = typer.Option(None, help="Append OCSF findings (JSONL) for a SIEM"),
+    mode: str = typer.Option("monitor", help="monitor (drop-in) or strict (planner + interpreter)"),
 ) -> None:
-    """Run a scenario under monitor mode (and, for comparison, without sluice)."""
+    """Run a scenario under sluice (and, for comparison, without it)."""
+    if mode not in ("monitor", "strict"):
+        console.print(f"[red]error:[/] unknown mode {mode!r}")
+        raise typer.Exit(2)
     try:
         build = load_scenario(scenario_dir)
     except ScenarioError as e:
@@ -72,28 +82,68 @@ def run(
     policy = Policy.load(sc.policy_path) if sc.policy_path else None
     if policy is None:
         console.print("[yellow]no policy.yaml: fail-closed deny-all policy in effect[/]")
-    run_dir = out / sc.name
+    if mode == "strict" and (sc.planner_llm is None or sc.quarantine_llm is None):
+        console.print(
+            "[red]error:[/] scenario defines no planner_llm/quarantine_llm for strict mode"
+        )
+        raise typer.Exit(2)
+    run_dir = out / (sc.name if mode == "monitor" else f"{sc.name}-strict")
     exporter = OcsfExporter(ocsf) if ocsf else None
     listeners = [exporter] if exporter else []
     with TraceWriter(run_dir / "trace.jsonl", listeners) as trace:
-        monitor = Monitor(policy, sc.registry, trace=trace, ask=rich_ask(console))
-        agent = Agent(sc.llm, sc.registry, monitor, system_prompt=sc.system_prompt)
-        res = agent.run(sc.user_prompt)
+        if mode == "monitor":
+            blocked, final = _run_monitor(sc, policy, trace)
+        else:
+            blocked, final = _run_strict(sc, policy or Policy.deny(), trace)
     if exporter:
         exporter.close()
         console.print(f"ocsf: {exporter.count} finding(s) appended to {ocsf}")
-    console.print(Panel.fit(f"[bold]{sc.name}[/] - under sluice (monitor mode)"))
-    console.print(_executed("tool calls executed", res))
-    for d in res.blocked:
+    for d in blocked:
         console.print(Panel(Text(d.explain()), title="[red]blocked[/]", border_style="red"))
     graph = ProvenanceGraph.from_events(trace.events).pruned()
     html_path = run_dir / "graph.html"
-    html_path.write_text(graph.to_html(f"sluice · {sc.name}"), encoding="utf-8")
+    html_path.write_text(graph.to_html(f"sluice · {sc.name} ({mode})"), encoding="utf-8")
     (run_dir / "graph.dot").write_text(graph.to_dot(), encoding="utf-8")
     console.print(f"trace: {run_dir / 'trace.jsonl'}\ngraph: {html_path}")
-    console.print(f"final answer: {res.final}")
+    console.print(Text(f"final answer: {final}"))
     if open_graph:
         webbrowser.open(html_path.resolve().as_uri())
+
+
+def _run_monitor(
+    sc: Scenario, policy: Policy | None, trace: TraceWriter
+) -> tuple[list[Decision], str]:
+    monitor = Monitor(policy, sc.registry, trace=trace, ask=rich_ask(console))
+    res = Agent(sc.llm, sc.registry, monitor, system_prompt=sc.system_prompt).run(sc.user_prompt)
+    console.print(Panel.fit(f"[bold]{sc.name}[/] - under sluice (monitor mode)"))
+    console.print(_executed("tool calls executed", res))
+    return res.blocked, res.final
+
+
+def _run_strict(sc: Scenario, policy: Policy, trace: TraceWriter) -> tuple[list[Decision], str]:
+    assert sc.planner_llm is not None and sc.quarantine_llm is not None
+    interp = Interpreter(
+        policy,
+        sc.registry,
+        quarantine=LLMQuarantine(sc.quarantine_llm),
+        schemas=sc.schemas,
+        trace=trace,
+        ask=rich_ask(console),
+    )
+    run = StrictAgent(Planner(sc.planner_llm, sc.registry, sc.schemas), interp).run(sc.user_prompt)
+    console.print(Panel.fit(f"[bold]{sc.name}[/] - under sluice (strict mode)"))
+    if run.plan is not None:
+        console.print(
+            Panel(Syntax(run.plan.source, "python"), title="plan (from the request only)")
+        )
+    result = run.result
+    colour = {"completed": "green", "blocked": "red", "error": "yellow"}[result.status]
+    console.print(f"plan status: [{colour}]{result.status}[/]")
+    if result.status == "error":
+        console.print(Text(result.error))
+    if result.answers:
+        console.print(Text(f"answer label: {result.answer_label}"))
+    return result.blocked, result.answer
 
 
 @app.command()

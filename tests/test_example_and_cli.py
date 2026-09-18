@@ -175,3 +175,35 @@ def test_cli_trifecta(tmp_path: Path) -> None:
     r = runner.invoke(app, ["trifecta", str(INBOX), "--policy", str(lax), "--strict"])
     assert r.exit_code == 1 and "UNGUARDED" in r.output and "PRESENT" in r.output
     assert runner.invoke(app, ["trifecta", str(tmp_path)]).exit_code == 2
+
+
+def test_cli_strict_mode(tmp_path: Path) -> None:
+    runner = CliRunner()
+    r = runner.invoke(
+        app, ["run", str(INBOX), "--mode", "strict", "--out", str(tmp_path), "--no-open"]
+    )
+    assert r.exit_code == 0, r.output
+    assert "plan status: blocked" in r.output and "exact label (strict mode)" in r.output
+    assert "maria@yourcompany.example" in r.output  # the summary answer still arrives
+    trace = tmp_path / "inbox-assistant-strict" / "trace.jsonl"
+    events = list(read_trace(trace))
+    assert events[0]["mode"] == "strict" and any(e["type"] == "plan" for e in events)
+    r = runner.invoke(app, ["replay", str(trace)])
+    assert r.exit_code == 0 and "0 of 2 decisions changed" in r.output
+
+
+def test_cli_strict_mode_errors(tmp_path: Path) -> None:
+    runner = CliRunner()
+    assert runner.invoke(app, ["run", str(INBOX), "--mode", "yolo", "--no-open"]).exit_code == 2
+    d = tmp_path / "sc"
+    d.mkdir()
+    (d / "scenario.py").write_text(
+        "from sluice.scenario import Scenario\n"
+        "from sluice.tools import ToolRegistry\n"
+        "from sluice.llm import MockLLM\n"
+        "def build():\n"
+        "    return Scenario('s', ToolRegistry(), MockLLM([]), 'hi')\n",
+        encoding="utf-8",
+    )
+    r = runner.invoke(app, ["run", str(d), "--mode", "strict", "--no-open", "--no-vanilla"])
+    assert r.exit_code == 2 and "planner_llm" in r.output
