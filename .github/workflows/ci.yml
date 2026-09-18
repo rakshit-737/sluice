@@ -19,3 +19,4 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest --cov=sluice --cov-report=term
       - run: uv run sluice run examples/inbox-assistant --no-open
+      - run: uv run sluice run examples/inbox-assistant --mode strict --no-open --no-vanilla
