@@ -109,10 +109,28 @@ class Monitor:
                 self._add(leaf, lab, f"{spec.name}(){path}", parents=[root.id])
         return root
 
+    def record_unreviewed_output(self, tool_name: str, output: Any) -> LabeledValue[Any]:
+        """Label a tool result whose call sluice never checked (e.g. history that predates
+        the guard). Only the tool's source label applies; unknown tools fail closed."""
+        spec = self.registry.get(tool_name)
+        source = spec.source if spec else f"tool.{tool_name or 'unknown'}"
+        return self._add(
+            output, self.policy.source_label(source), f"{tool_name or '?'}() [unreviewed]"
+        )
+
     # ---- sinks ----------------------------------------------------------------------------
 
     def check(self, call: ToolCall) -> CheckedCall:
         call_id = f"c{next(self._calls)}"
+        if call.parse_error:
+            return self._finish(
+                call_id,
+                call,
+                Decision(call.name, "block", reason=f"unparseable arguments: {call.parse_error}"),
+                {},
+                {},
+                {},
+            )
         fallback = self.policy.source_label(MODEL_SOURCE)
         args: dict[str, Any] = {}
         labels: dict[str, Label] = {}
@@ -127,7 +145,17 @@ class Monitor:
             for k, a in attrib.items()
         }
         decision = self.policy.decide(call.name, labels, self.registry, evidence)
-        decision = self._resolve(decision)
+        return self._finish(call_id, call, self._resolve(decision), args, attrib, evidence)
+
+    def _finish(
+        self,
+        call_id: str,
+        call: ToolCall,
+        decision: Decision,
+        args: dict[str, Any],
+        attrib: dict[str, Attribution],
+        evidence: dict[str, list[str]],
+    ) -> CheckedCall:
         self.decisions.append(decision)
         self.trace.emit(
             "call",
@@ -147,7 +175,8 @@ class Monitor:
             decision=decision.to_json(),
             explanation=decision.explain(),
         )
-        return CheckedCall(call_id, call, decision, args, join_all(labels.values()))
+        arg_label = join_all(a.label for a in attrib.values())
+        return CheckedCall(call_id, call, decision, args, arg_label)
 
     def _attribute(self, raw: Any, fallback: Label) -> tuple[Attribution, Any]:
         ref = _ref(raw)

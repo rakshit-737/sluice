@@ -185,3 +185,17 @@ def test_multiple_tool_calls_in_one_message() -> None:
     )
     res, _, _ = run([msg, say("")])
     assert len(res.decisions) == 2 and all(d.allowed for d in res.decisions)
+
+
+def test_unparseable_arguments_blocked() -> None:
+    reg, _ = make()
+    mon = Monitor(Policy.from_yaml(POLICY), reg)
+    checked = mon.check(ToolCall("x", "send", {}, parse_error="bad JSON"))
+    assert checked.decision.verdict == "block" and "unparseable" in checked.decision.reason
+
+
+def test_unreviewed_output_uses_source_label() -> None:
+    reg, _ = make()
+    mon = Monitor(Policy.from_yaml(POLICY), reg)
+    assert not mon.record_unreviewed_output("fetch", "hi").label.trusted
+    assert mon.record_unreviewed_output("ghost", "x").label.sources == {"tool.ghost"}

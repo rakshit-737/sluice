@@ -16,6 +16,8 @@ class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
+    # Set when the provider returned arguments sluice could not parse; such calls are blocked.
+    parse_error: str = ""
 
 
 @dataclass(frozen=True)
@@ -24,6 +26,7 @@ class Message:
     content: str = ""
     tool_calls: tuple[ToolCall, ...] = ()
     tool_call_id: str | None = None
+    name: str = ""  # tool name, for tool-result messages
 
 
 class LLMClient(Protocol):
