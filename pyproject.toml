@@ -20,6 +20,9 @@ mcp = ["mcp>=1.0"]
 otel = [
     "opentelemetry-api>=1.25",
 ]
+bench = [
+    "agentdojo>=0.1.35",
+]
 
 [project.scripts]
 sluice = "sluice.cli:app"
@@ -72,3 +75,7 @@ branch = true
 show_missing = true
 skip_covered = true
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError", "\\.\\.\\."]
+
+[[tool.mypy.overrides]]
+module = ["agentdojo.*"]
+ignore_missing_imports = true
