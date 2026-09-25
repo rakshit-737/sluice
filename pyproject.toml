@@ -13,8 +13,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-anthropic = ["anthropic>=0.40"]
-openai = ["openai>=1.40"]
+anthropic = ["anthropic>=1.8.0"]
+openai = ["openai>=3.18.0"]
 ollama = ["ollama>=0.3"]
 mcp = ["mcp>=1.0"]
 otel = [
