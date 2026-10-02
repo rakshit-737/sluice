@@ -42,7 +42,7 @@ jobs:
           path: trifecta.sarif
       - name: Upload to code scanning (needs GitHub Advanced Security on private repos)
         if: always() && !github.event.repository.private
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trifecta.sarif
           category: sluice-trifecta
